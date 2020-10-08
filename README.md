@@ -21,7 +21,7 @@ Configurations
 As we want something very clean and simple, let's create something removing a lot of stuff we will not use in this app. So, after installing the Ruby and Rails versions mentioned above, to create the app, we would just run
 
 ```shell
-rails new graphql-api --skip-yarn --skip-action-mailer --skip-action-cable --skip-sprockets --skip-coffee --skip-javascript --skip-turbolinks -T --api
+rails new graphql-api --skip-yarn --skip-action-mailer --skip-action-cable --skip-coffee -T --api
 ```
 
 Add 'graphql' gem to Gemfile:
@@ -30,5 +30,50 @@ Add 'graphql' gem to Gemfile:
 # Gemfile
 ...
 gem 'graphql'
+...
+```
+Now, install the gem:
+
+```shell
+bundle install
+```
+
+We will use SQlite for database, so nothing about settings has to be done here, related to that; just create the database:
+
+```shell
+bundle exec rails db:create
+```
+
+Models and Data
+===
+
+#### Building our models
+
+Let's create now our models. The purpose is just show some basic functionalities of GraphQL queries and mutations. So, this will be a simple author-books application.
+
+Let's create our authors model and it's database migration:
+
+```ruby
+bundle exec rails generate model Author email:string name:string
+```
+
+Now let's create our books model and it's database migration:
+
+```ruby
+bundle exec rails generate model Book title:string author:belongs_to description:text
+```
+
+Now, let's run our migrations:
+
+```
+bundle exec rails db:migrate
+```
+
+We cannot forget to add the `has_many` relationship from author to books:
+
+```ruby
+# app/models/author.rb
+...
+has_many :books
 ...
 ```
