@@ -114,32 +114,103 @@ rails generate graphql:install
 
 This will generates some files related to GraphQL basic configurations.
 
-#### GraphiQL gem installation
+#### Postman over GraphiQL gem to testing (not used)
 
-We will also use an awesome gem to use a browse-based IDE to test our GraphQL requests. So, add it to Gemfile:
+As we decided to create a Rails API application, without assets, we will use [Postman](https://www.postman.com/) to make the POST requests to the Rails server. But you should also try in some opportunity using GraphiQL ql gem.
+It's an awesome gem to use a browse-based IDE to test GraphQL requests.
 
-```ruby
-# Gemfile
-...
-group :development do
-  gem 'graphiql-rails'
-end
-...
-```
+#### Objects generation
 
-Install the gem:
+Now we can generate the GraphQL objects that will match our models book and author:
 
 ```shell
-bundle install
+bundle exec rails generate graphql:object author
+bundle exec rails generate graphql:object book
 ```
 
-Now we need to tell Rails the route to that browse-based IDE. So, add the following to *routes.rb*:
+This will create the following 2 files:
+
+*app/graphql/types/author_type.rb*
+*app/graphql/types/book_type.rb*
+
+#### Querying
+
+To create the queries we will not just use the *query_type.rb* file. IMO, it blows up too much the file and leave things messed and confuse. So, we will use [Resolvers](https://graphql-ruby.org/fields/resolvers.html).
+
+So, let's change our *query_type.rb* file. It should look like something like this:
 
 ```ruby
-# config/routes.rb
-...
-if Rails.env.development?
-  mount GraphiQL::Rails::Engine, at: '/graphiql', graphql_path: 'graphql#execute'
+module Types
+  class QueryType < Types::BaseObject
+    ...
+    field :authors, resolver: Queries::Authors
+    ...
+  end
 end
-...
+```
+
+Let's extend the *BaseQuery* class. Create a *base_query.rb* file inside **queries** folder:
+
+```ruby
+# app/graphql/queries/base_query.rb
+module Queries
+  class BaseQuery < GraphQL::Schema::Resolver
+  end
+end
+```
+
+Now, create the ***queries*** directory and, inside that, create the *authors.rb* file. that will have the following content:
+
+```ruby
+module Queries
+  class Authors < BaseQuery
+    type [Types::AuthorType], null: false
+
+    def resolve
+      authors = ::Author.all
+      authors
+    end
+  end
+end
+```
+
+#### Testing
+
+Now let's test what we've done so far. Run the application:
+
+```shell
+bundle exec rails server
+```
+
+So, on your browser, on Postman, let's try this query - to get all existent authors and some informations (*id*, *name* and *email*):
+
+```
+query {
+  authors {
+    id
+    name
+    email
+  }
+}
+```
+
+If you did everything right so far, you should receive this response (on Postman response body):
+
+```
+{
+  "data": {
+    "authors": [
+      {
+        "id": "1",
+        "name": "Arthur Conan Doyle",
+        "email": "contact@arthurconandoyle.com"
+      },
+      {
+        "id": "2",
+        "name": "J. R. R. Tolkien",
+        "email": "contact@tolkienbooks.com"
+      }
+    ]
+  }
+}
 ```
