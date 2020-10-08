@@ -162,6 +162,7 @@ end
 Now, create the ***queries*** directory and, inside that, create the *authors.rb* file. that will have the following content:
 
 ```ruby
+# app/graphql/queries/authors.rb
 module Queries
   class Authors < BaseQuery
     type [Types::AuthorType], null: false
@@ -182,7 +183,7 @@ Now let's test what we've done so far. Run the application:
 bundle exec rails server
 ```
 
-So, on your browser, on Postman, let's try this query - to get all existent authors and some informations (*id*, *name* and *email*):
+So, on Postman, let's try this query - to get all existent authors and some informations (*id*, *name* and *email*):
 
 ```
 query {
@@ -209,6 +210,85 @@ If you did everything right so far, you should receive this response (on Postman
         "id": "2",
         "name": "J. R. R. Tolkien",
         "email": "contact@tolkienbooks.com"
+      }
+    ]
+  }
+}
+```
+
+Now that we saw that it works, let's create the books query. But before that, we need to create the books field on *query_type.rb* and it's resolver, *books.rb*, inside the **queries** folder:
+
+```ruby
+# app/graphql/queries/books.rb
+module Queries
+  class Books < BaseQuery
+    type [Types::BookType], null: false
+
+    def resolve
+      books = ::Book.all
+      books
+    end
+  end
+end
+```
+
+And still, before running the query, we need to change the *book_type.rb*. We need to add the line
+
+`field :author, Types::AuthorType, null: false`
+
+to be able to make a direct relation on the query between books and authors and we also will be able to remove the line
+
+`field :author_id, Integer, null: false`
+
+now that we already have that direct relation. So, the *book_type.rb* object should be something like this:
+
+```ruby
+# app/graphql/types/book_type.rb
+module Types
+  class BookType < Types::BaseObject
+    field :id, ID, null: false
+    field :title, String, null: true
+    field :author, Types::AuthorType, null: false
+    field :description, String, null: true
+    field :created_at, GraphQL::Types::ISO8601DateTime, null: false
+    field :updated_at, GraphQL::Types::ISO8601DateTime, null: false
+  end
+end
+```
+
+Finally, now, on Postman, let's try this query - to get all existent books and some informations (*id*, *title* and *author*):
+
+```
+query {
+  books {
+    id
+    title
+    author {
+      name
+    }
+  }
+}
+```
+
+If you did everything right so far, you should receive this response (on Postman response body):
+
+```
+{
+  "data": {
+    "books": [
+      {
+        "id": "1",
+        "title": "The Lost World",
+        "author": {
+          "name": "Arthur Conan Doyle"
+        }
+      },
+      {
+        "id": "2",
+        "title": "The Silmarillion",
+        "author": {
+          "name": "J. R. R. Tolkien"
+        }
       }
     ]
   }
