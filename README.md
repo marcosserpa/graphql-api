@@ -175,7 +175,7 @@ module Queries
 end
 ```
 
-#### Testing
+#### Testing the queries
 
 Now let's test what we've done so far. Run the application:
 
@@ -197,7 +197,7 @@ query {
 
 If you did everything right so far, you should receive this response (on Postman response body):
 
-```
+```JSON
 {
   "data": {
     "authors": [
@@ -272,7 +272,7 @@ query {
 
 If you did everything right so far, you should receive this response (on Postman response body):
 
-```
+```JSON
 {
   "data": {
     "books": [
@@ -294,3 +294,359 @@ If you did everything right so far, you should receive this response (on Postman
   }
 }
 ```
+
+#### Mutations
+
+Create, update and destroy operations, in GraphQL, are achieved using Mutations. So, let's create a new author. To create it's mutation, first we need to declare that mutation on the *mutation_type.rb* file:
+
+```ruby
+# app/graphql/types/mutation_type.rb
+module Types
+  class MutationType < Types::BaseObject
+    ...
+    field :create_author, mutation: Mutations::Authors::CreateAuthor
+    ...
+  end
+end
+```
+
+As you can see, we will add that mutation to a folder inside the **mutations** folder called **authors** (look the module/class hierarchy: *Mutations::Authors::CreateAuthor*). So, just create the **authors** folder and, inside that, create the *create_author.rb* file with the below content:
+
+```ruby
+# app/graphql/mutations/authors/create_author.rb
+module Mutations
+  module Authors
+    class CreateAuthor < BaseMutation
+      # arguments needed to create an author
+      argument :name, String, required: true
+      argument :email, String, required: true
+
+      # type of the return to the call
+      field :author, Types::AuthorType, null: true
+
+      def resolve(name:, email:)
+        author = ::Author.new(
+          name: name,
+          email: email
+        )
+
+        # here we mount the structure of the JSON that will be returned
+        if author.save
+          {
+            author: author
+          }
+        else
+          {
+            errors: author.errors
+          }
+        end
+      end
+    end
+  end
+end
+```
+
+Now, to test it, let's make a request on Postman:
+
+```
+mutation {
+  createAuthor(input: {
+    name: "Ariano Suassuna",
+    email: "contato@suassunaeditora.com"
+  }) {
+    author {
+      id
+      name
+      email
+    }
+  }
+}
+```
+
+The first part (**input** part) are the params to the creation itself. The second part
+
+```ruby
+author {
+  id
+  name
+  email
+}
+```
+
+is the how the information will be presented on the return JSON. The response should be something like this:
+
+```JSON
+{
+  "data": {
+    "createAuthor": {
+      "author": {
+        "id": "3",
+        "name": "Ariano Suassuna",
+        "email": "contato@suassunaeditora.com"
+      }
+    }
+  }
+}
+```
+
+Now, suppose that we have the ID of one author and want to update his email. So, first of all, we need to create the *update_author.rb* mutation on the **authors* folder, like the mutation before:
+
+```ruby
+# app/graphql/mutations/authors/update_author.rb
+module Mutations
+  module Authors
+    class UpdateAuthor < BaseMutation
+      # arguments needed to create an author. They are not required 'cause we don't want to force update of all fields
+      # only ID is required 'cause we need to know the author we want to update
+      argument :id, ID, required: true
+      argument :name, String, required: false
+      argument :email, String, required: false
+
+      field :author, Types::AuthorType, null: true
+
+      def resolve(args)
+        author = ::Author.find_by(id: args[:id])
+        params = args.compact.except(:id)
+
+        if author.update(args)
+          {
+            author: author
+          }
+        else
+          {
+            errors: author.errors
+          }
+        end
+      end
+    end
+  end
+end
+```
+
+Let's declare it on the *mutation_type.rb*:
+
+```ruby
+# app/graphql/types/mutation_type.rb
+module Types
+  class MutationType < Types::BaseObject
+    ...
+    field :update_author, mutation: Mutations::Authors::UpdateAuthor
+    ...
+  end
+end
+```
+
+Now we can do that update call:
+
+```
+mutation {
+  updateAuthor(input: {
+    id: 3,
+    email: "novo_contato@suassunaeditora.com"
+  }) {
+    author {
+      id
+      name
+      email
+    }
+  }
+}
+```
+
+The response should be something like this:
+
+```JSON
+{
+  "data": {
+    "updateAuthor": {
+      "author": {
+        "id": "3",
+        "name": "Ariano Suassuna",
+        "email": "novo_contato@suassunaeditora.com"
+      }
+    }
+  }
+}
+```
+
+So...if we want to destroy? Let's first create the mutation to that (*destroy_author.rb* inside the **authors* folder):
+
+```ruby
+# app/graphql/mutations/authors/destroy_author.rb
+module Mutations
+  module Authors
+    class DestroyAuthor < BaseMutation
+      argument :id, ID, required: true
+
+      # here we can just return a success - like a status, for example - just to respond that everything happened as we wanted
+      field :success, Boolean, null: false
+
+      def resolve(id:)
+        author = ::Author.find_by(id: args[:id])
+
+        if author.destroy
+          {
+            success: true
+          }
+        else
+          {
+            success: false
+          }
+        end
+      end
+    end
+  end
+end
+```
+
+Let's declare it on the *mutation_type.rb*:
+
+```ruby
+# app/graphql/types/mutation_type.rb
+module Types
+  class MutationType < Types::BaseObject
+    ...
+    field :destroy_author, mutation: Mutations::Authors::DestroyAuthor
+    ...
+  end
+end
+```
+
+Now we can do that destroy call:
+
+```
+mutation {
+  destroyAuthor(input: {
+    id: 1
+  }) {
+    success
+  }
+}
+```
+
+The response should be something like this:
+
+```JSON
+{
+  "data": {
+    "destroyAuthor": {
+      "success": true
+    }
+  }
+}
+```
+
+So that's it! We've done an amazing simple job! \o/ <3
+
+The requests/responses to the Books mutations API will be analog to the authors API. But let's just do the creation and update 'cause here we have a peculiarity: a book needs an author foreign key. It's not big deal. But we will do this 2 examples to not remain any doubts!
+
+First of all, we need to create the **books** folder. Then, let's create our *create_book.rb* mutation:
+
+```ruby
+# app/graphql/mutations/books/create_book.rb
+module Mutations
+  module Books
+    class CreateBook < BaseMutation
+      # arguments needed to create a book
+      argument :author_id, ID, required: true
+      argument :title, String, required: true
+      argument :description, String, required: true
+
+      # type of the return to the call
+      field :book, Types::BookType, null: true
+
+      def resolve(title:, description:, author_id:)
+        author = ::Author.find_by(id: author_id)
+        book = author.books.build(
+          title: title,
+          description: description
+        )
+
+        # here we mount the structure of the JSON that will be returned
+        if book.save
+          {
+            book: book
+          }
+        else
+          {
+            errors: book.errors
+          }
+        end
+      end
+    end
+  end
+end
+```
+
+Let's add that to the *mutation_type.rb*:
+
+```ruby
+# app/graphql/types/mutation_type.rb
+module Types
+  class MutationType < Types::BaseObject
+    ...
+    field :create_book, mutation: Mutations::Books::CreateBook
+    ...
+  end
+end
+```
+
+Now, to test it, let's make a request on Postman:
+
+```
+mutation {
+  createBook(input: {
+    authorId: 3,
+    title: "O Auto da Compadecida",
+    description: "Auto da Compadecida is a comedy of northeast Brazil. It combines elements of the tradition of popular literature known as cordel, a striking feature of the Brazilian Catholic baroque, mixing popular culture and religious tradition. It is very important in brazilian culture."
+  }) {
+    book {
+      id
+      title
+      description
+      author {
+        id
+        name
+      }
+    }
+  }
+}
+```
+
+The first part (**input** part) are the params to the creation itself, as we saw before on the authors example. The second part
+
+```ruby
+book {
+  id
+  title
+  description
+  author {
+    id
+    name
+  }
+}
+```
+
+shows us one of the most amazing things in GraphQL: we did not described on the *CreateBook* mutation that we wanted to return information about the author. But, GraphQL know that is everything linked/associated ('cause we told it before, when defining the object types). So, we can just specify on the response structure we want some association and that will be there, on the returning JSON! \o/
+
+So, the response should be something like this:
+
+```JSON
+{
+  "data": {
+    "createBook": {
+      "book": {
+        "id": "3",
+        "title": "O Auto da Compadecida",
+        "description": "Auto da Compadecida is a comedy of northeast Brazil. It combines elements of the tradition of popular literature known as cordel, a striking feature of the Brazilian Catholic baroque, mixing popular culture and religious tradition. It is very important in brazilian culture.",
+        "author": {
+          "id": "3",
+          "name": "Ariano Suassuna"
+        }
+      }
+    }
+  }
+}
+```
+
+If some doubts remains, you can always take a look at the source code of this tiny project we created above. Take a ride at this repo on Github:
