@@ -649,4 +649,6 @@ So, the response should be something like this:
 }
 ```
 
-If some doubts remains, you can always take a look at the source code of this tiny project we created above. Take a ride at this repo on Github:
+If some doubts remains, you can always take a look at the source code of this tiny project we created above. Take a ride at this repo on [Github](https://github.com/marcosserpa/graphql-api).
+
+The remaining mutations you can do by yourself to test you new abilities! <3
